@@ -1,24 +1,18 @@
 //ES5
-// parents have 5 childrens, each children -2 years from first. first.yo=20, 
-// each children has own id
-// id-names: 199-martin 399-john 299-methew 599-katrin 099-brew (switch only)
-// print 
-// 1 make array with all children then print it
-// 2 for each children make function which return delta from input YO (40) (3 different ways). print it
-// 3 new children birthd add and print
+// Parents have 5 children. Each child is 2 years younger than the first child, who is 20 years old.
+// Each child has their own ID and name.
+// ID-names: 199-martin, 399-john, 299-matthew, 599-katrin, 099-brew (switch only)
+// 
+// Tasks:
+// 1. Create an array with all the children and print it.
+// 2. For each child, create a function that returns the age difference from the input year (40), using three different ways. Print the results.
+// 3. Add a new child's birthdate and print it.
 
 const firstChildYO = 20
 const numberOfChildren = 5;
 const yoDeltaFromPrevious = 2;
-var names = ['martin', 'john', 'methew', 'katrin', 'brew']
-var children = []
-
-Child.prototype = {
-    delta2: function(yo){
-        return 0;
-    }
-}
-
+const names = ['martin', 'john', 'methew', 'katrin', 'brew']
+const children = []
 
 for (childNumber = 1, yo = firstChildYO; childNumber<=numberOfChildren; childNumber++, yo-=yoDeltaFromPrevious){
     const childName = names[childNumber-1];
@@ -29,7 +23,7 @@ for (childNumber = 1, yo = firstChildYO; childNumber<=numberOfChildren; childNum
 
 console.log('1. children', JSON.stringify(children))
 
-Child.prototype .delta2 = function(yo){
+Child.prototype.delta2 = function(yo){
     return yo - this.yo;
 }
 
@@ -37,8 +31,8 @@ Child.prototype.delta4 = function(yo){
     return yo - this.yo*2;
 }
 console.log('2. delta')
-for (const childNumber in children){
-    const child = children[childNumber];
+for (const child of children){
+    // ok
     child.delta3 = function(yo){
         return this.yo+yo;
     }
