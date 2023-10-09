@@ -1,0 +1,27 @@
+{
+  "name": "censormepls",
+  "version": "1.0.2",
+  "description": "text replacer",
+  "main": "censor",
+  "scripts": {
+    "test": "jest"
+  },
+  "engines": {
+    "node": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iamrunar/book-nodejs-mongo-angular-web-dev/chapter3-nodejs-package"
+  },
+  "keywords": [
+    "replacer",
+    "fixer",
+    "text",
+    "editor"
+  ],
+  "author": "Undef John",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
