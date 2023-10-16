@@ -3,6 +3,7 @@
 // + listen localhost:8080
 // + on GET `/hello` > 200 <h1>Hi!</h1><p>my dude</p>
 // + on GET `/weather?ncity=<cityName>` > request weather from another site and response simple data (+31 C cloudy)
+// * on GET /file-form: response <form action="send"><input type="textbox"><input type="file"/></form>
 // * on POST form > save file to 'usr'
 // * on GET `/file?name=<file_name>` > 200 if it file_name exists in usr => response by content
 // * on another path > 404 <h1>Not found</h1>
@@ -22,7 +23,7 @@ const getHtmlTitleWithMessageText = function (title, message) { return `<html><b
 const weatherApiKey=fs.readFileSync(os.homedir()+'/my_data/weatherApi_com.key');
 
 const server = http.createServer(function (req, res) {
-    console.log('New request', req.url)
+    console.log('New request', req.method, req.url)
 
     var url = new urlParser.URL(req.url, "http://localhost/");
     if (req.method === 'GET' && url.pathname === '/hello') {
@@ -57,13 +58,134 @@ const server = http.createServer(function (req, res) {
         return;
     }
 
+    if (req.method === 'GET' && url.pathname === '/file-form'){
+        fs.readFile('templates/form-file.html', function(err, data){
+            if (err){
+                console.error('File open error ',err);
+                res.writeHead(500, 'Template not found');
+                res.end(getHtmlTitleWithMessageText('No file content', 'File open error'))
+                return;
+            }
+
+            res.writeHead(200, undefined, {
+                "content-type": "text/html"
+            });
+            res.end(data)
+        })
+        return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/form-action'){
+        const {headers} = req;
+        if (!headers['content-type']?.includes('multipart/form-data')){
+            console.error('Unsupported content-type',headers['content-type'])
+            res.writeHead(400);
+            res.end('Unsupported request header');
+            return;
+        }
+
+        console.log('boundary',headers['content-type'])
+        const data=[];
+        req.on('data', function(chunk){
+            data.push(chunk);
+        })
+        req.on('end', function(){
+            const boundaryIndex = headers['content-type'].indexOf('boundary=');
+            const boundary = '--'+headers['content-type'].substring(boundaryIndex+'boundary='.length);
+
+           const body = Buffer.concat(data)
+           var nextBoundaryIndex = 0;
+           var startFileIndex;
+           var endFileIndex;
+           var fileName;
+            while (true){
+                const currentBoundaryIndex = body.indexOf(boundary,nextBoundaryIndex);
+                console.log('current boundary index found ', currentBoundaryIndex);
+                if (startFileIndex){
+                    endFileIndex = currentBoundaryIndex-2; //+0xa
+                    break;
+                }
+                if (currentBoundaryIndex===-1){
+                    break;
+                }
+                nextBoundaryIndex = currentBoundaryIndex + boundary.length;
+
+                var startLine = nextBoundaryIndex+1;
+                
+                //check if it Content-Disposition
+                var endLine = startLine;
+                while (endLine<body.length && body.readInt8(endLine)!==0x0D) endLine++;
+                
+                if (startLine < endLine){
+                    const contentDisposition = body.subarray(startLine,endLine).toString();
+                    const match = contentDisposition.match(/filename=\"(.+?)\"/);
+                    if (match){
+                        fileName = match[1];
+                        console.log('fileNameFound', match[1])
+                        startLine = endLine+2; //skip 0x0A
+                        while (true){
+                            const line = body.subarray(startLine,startLine+'Content-'.length).toString();
+                            if (line==='Content-'){
+                                //skip line
+                                while (startLine<body.length && body.readInt8(startLine)!==0x0D) startLine++;
+                                while (startLine<body.length && [0x0D, 0x0A].includes(body.readInt8(startLine))) startLine++;
+                            }
+                            else {
+                                console.log('Write to file', line);
+                                startFileIndex = startLine;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (startFileIndex && endFileIndex && fileName){
+                const fileData = body.subarray(startFileIndex,endFileIndex);
+                saveFile(fileName, fileData);
+            }
+            else {
+                console.error('File in form-data not found');
+                res.writeHead(400);
+                res.end('File in form-data not found');
+                return;
+            }
+
+
+            function saveFile(fileName, fileData){
+                fs.mkdir('tmp', function(err){
+                    fs.writeFile('tmp/user_output.data', fileData, function(err){
+                        if (err){
+                            console.error('Cannt write file',err);
+                            res.writeHead(500);
+                            res.end('Cannt write file');
+                            return;
+                        }
+                        console.log(`file wrote`);
+                        res.writeHead(200);
+                        res.end('OK');
+                    });
+                });
+            }
+          
+        })
+
+        req.on('error', function(err){
+            res.writeHead(400);
+            res.end('Client error');
+            console.error(`client error = ${err}`);
+        })
+        console.log('form-action')
+        return;
+    }
+
     res.writeHead(404);
     res.end(getHtmlTitleText("Not found"))
 });
 
 console.log('Listen to', port)
 server.listen(port).on('error', function (err){
-    console.err('Failed to start server',err)
+    console.error('Failed to start server',err)
 })
 
 function getNumWithSignChar(num){
