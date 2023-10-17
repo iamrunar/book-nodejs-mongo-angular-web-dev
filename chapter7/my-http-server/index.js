@@ -61,7 +61,6 @@ const server = http.createServer(function (req, res) {
     if (req.method === 'GET' && url.pathname === '/file-form'){
         fs.readFile('templates/form-file.html', function(err, data){
             if (err){
-                console.error('File open error ',err);
                 res.writeHead(500, 'Template not found');
                 res.end(getHtmlTitleWithMessageText('No file content', 'File open error'))
                 return;
@@ -121,7 +120,6 @@ const server = http.createServer(function (req, res) {
                     const match = contentDisposition.match(/filename=\"(.+?)\"/);
                     if (match){
                         fileName = match[1];
-                        console.log('fileNameFound', match[1])
                         startLine = endLine+2; //skip 0x0A
                         while (true){
                             const line = body.subarray(startLine,startLine+'Content-'.length).toString();
@@ -131,7 +129,6 @@ const server = http.createServer(function (req, res) {
                                 while (startLine<body.length && [0x0D, 0x0A].includes(body.readInt8(startLine))) startLine++;
                             }
                             else {
-                                console.log('Write to file', line);
                                 startFileIndex = startLine;
                                 break;
                             }
@@ -154,7 +151,7 @@ const server = http.createServer(function (req, res) {
 
             function saveFile(fileName, fileData){
                 fs.mkdir('tmp', function(err){
-                    fs.writeFile('tmp/user_output.data', fileData, function(err){
+                    fs.writeFile('tmp/'+fileName, fileData, function(err){
                         if (err){
                             console.error('Cannt write file',err);
                             res.writeHead(500);
@@ -176,6 +173,45 @@ const server = http.createServer(function (req, res) {
             console.error(`client error = ${err}`);
         })
         console.log('form-action')
+        return;
+    }
+
+    if (req.method === 'GET' && url.pathname.startsWith('/file/')){
+        const fileName = url.pathname.substring('/file/'.length)
+        const serverFileName = 'tmp/'+fileName;
+        console.log('request file ',fileName)
+        if (!fileName){
+            res.writeHead(400, 'No query param name');
+            res.end(getHtmlTitleWithMessageText('Invalid param', 'no query param name'));
+            return;
+        }
+
+        fs.stat(serverFileName, function(err, stats){
+            if (!err && !stats.isFile()){
+                err = Error('It is not file');
+            }
+            if (err){
+                console.error('File not found', err);
+                res.writeHead(404, 'File not found');
+                res.end(getHtmlTitleWithMessageText('File not found', `File ${fileName} not found`));
+                return;
+            }
+
+            fs.readFile(serverFileName, function(err, data){
+                if (err){
+                    console.error('File cannt read', err);
+                    res.writeHead(500, 'File cannt read');
+                    res.end(getHtmlTitleWithMessageText('File cannt read', `File ${fileName} cannt read`));
+                    return;
+                }
+
+                res.writeHead(200, 'ok', {
+                    'content-type': 'application/octet-stream',
+                    'content-length': stats.size
+                });
+                res.write(data);
+            })
+        });
         return;
     }
 
