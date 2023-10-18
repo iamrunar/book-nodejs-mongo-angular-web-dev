@@ -7,12 +7,11 @@
 // * on POST form > save file to 'usr'
 // * on GET `/file?name=<file_name>` > 200 if it file_name exists in usr => response by content
 // * on another path > 404 <h1>Not found</h1>
-// * log on each request (use pipe)
-// * create server with https
 
 //WARNING! You should to create ~/my_data/weatherApi_com.key with weatherapi.com key
 
 const http = require('http');
+const formUtils = require('./utils/form-utils')
 
 const urlParser = require('url');
 const fs = require('fs')
@@ -89,57 +88,15 @@ const server = http.createServer(function (req, res) {
             data.push(chunk);
         })
         req.on('end', function(){
-            const boundaryIndex = headers['content-type'].indexOf('boundary=');
-            const boundary = '--'+headers['content-type'].substring(boundaryIndex+'boundary='.length);
-
-           const body = Buffer.concat(data)
-           var nextBoundaryIndex = 0;
-           var startFileIndex;
-           var endFileIndex;
-           var fileName;
-            while (true){
-                const currentBoundaryIndex = body.indexOf(boundary,nextBoundaryIndex);
-                console.log('current boundary index found ', currentBoundaryIndex);
-                if (startFileIndex){
-                    endFileIndex = currentBoundaryIndex-2; //+0xa
-                    break;
-                }
-                if (currentBoundaryIndex===-1){
-                    break;
-                }
-                nextBoundaryIndex = currentBoundaryIndex + boundary.length;
-
-                var startLine = nextBoundaryIndex+1;
-                
-                //check if it Content-Disposition
-                var endLine = startLine;
-                while (endLine<body.length && body.readInt8(endLine)!==0x0D) endLine++;
-                
-                if (startLine < endLine){
-                    const contentDisposition = body.subarray(startLine,endLine).toString();
-                    const match = contentDisposition.match(/filename=\"(.+?)\"/);
-                    if (match){
-                        fileName = match[1];
-                        startLine = endLine+2; //skip 0x0A
-                        while (true){
-                            const line = body.subarray(startLine,startLine+'Content-'.length).toString();
-                            if (line==='Content-'){
-                                //skip line
-                                while (startLine<body.length && body.readInt8(startLine)!==0x0D) startLine++;
-                                while (startLine<body.length && [0x0D, 0x0A].includes(body.readInt8(startLine))) startLine++;
-                            }
-                            else {
-                                startFileIndex = startLine;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (startFileIndex && endFileIndex && fileName){
-                const fileData = body.subarray(startFileIndex,endFileIndex);
-                saveFile(fileName, fileData);
+            const body = Buffer.concat(data);
+            fs.writeFileSync('tmp/tempalte.data', body);
+            const boundaryName = formUtils.extractBoundaryName(headers['content-type']);
+            const fileData = formUtils.extractFile(boundaryName, body);
+            
+            if (fileData){
+                const fileNameA = fileData.fileName;
+                const fileBuffer = body.subarray(fileData.startOffset, fileData.endOffset);
+                saveFile(fileNameA, fileBuffer);
             }
             else {
                 console.error('File in form-data not found');
