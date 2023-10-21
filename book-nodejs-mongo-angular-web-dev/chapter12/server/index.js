@@ -1,14 +1,68 @@
-/*
-Create an app "Word counter" which
-1. The system has users. API `token = POST /users/new?name=<>` or `token = POST /user/login?name=<>`
-2. Each user has an word collection. Contract `user => word: count`.
-3. Each users can add:
-    a. a word to their own collection. API `POST /words/single?word=<>`.
-    b. words from a document. API `POST /words/document` `{ text: ""}`.
-    c. a web document (by URL). Each word from the document will be added to the user's word collection. `POST /words/web?url=<>`.
-4. In addition, each user can: 
-    a. retrieve the count of specific word or words in their collection. API `resp = GET /words/stats?word=<>[&word=<>...]` resp is `{words: [{word:<>, count:<>}], count}`.
-    b. retrieve the total count of their words in the same way as 4a. API `resp = GET /words/stats` resp is `{ count: <> }`.
+const express = require('express');
+const url = require('url');
+const dbClient = require('./database_client.js');
 
-For the user API, each request must include a header `user_token` (see the first point), otherwise, a 403 error.
-*/
+const port = 8080;
+
+const databaseClient = new dbClient.DatabaseClient('connectionString');
+const app = express();
+
+
+app.listen(port);
+console.log('listen to', port);
+
+//curl -X POST 'http://localhost:8080/users/new?name=user1'
+app.post('/users/new', function(req, res){
+    const reqUrl = url.parse(req.url, true);
+    const { name } = reqUrl.query;
+    console.log('/users/new', name);
+
+    if (!databaseClient.users.addNew(name)){
+        res.status(400);
+        res.send(`The user ${name} already exists.`)
+        return;
+    }
+
+    const token = databaseClient.tokens.login(name);
+    
+    res.status(200);
+    res.send(token)
+});
+
+// curl -X POST 'http://localhost:8080/users/login?name=user1'
+app.post('/users/login', function(req, res){
+    const reqUrl = url.parse(req.url, true);
+    const { name } = reqUrl.query;
+    console.log('/users/login', name);
+
+    var token;
+    try{
+         token = databaseClient.tokens.login(name);
+    }catch(err){
+
+        //case 
+        res.status(404);
+        res.send('User not found')
+        return;
+    }
+
+    res.status(200);
+    res.send(token)
+});
+
+// curl  -H 'user-token: user1-my-token1' 'http://localhost:8080/words/stats'
+app.get('/words/stats', function(req,res){
+    const userToken = req.headers['user-token'];
+    if (!userToken){
+        res.status(403);
+        res.send("Access denied");
+        return;
+    }
+    if (!databaseClient.tokens.isValidToken(userToken)){
+        res.status(403);
+        res.send("User access denied");
+        return;
+    }
+    res.status(200);
+    res.send({ count: 0 });
+})
