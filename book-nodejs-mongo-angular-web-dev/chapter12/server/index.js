@@ -4,6 +4,8 @@ const dbClient = require('./database_client.js');
 const UserWord = require('./models/user-word.js');
 const UserWordService = require('./services/user-word-service.js');
 const bodyParser = require('body-parser');
+const request = require('request');
+const { parse } = require('node-html-parser');
 
 const port = 8080;
 
@@ -145,6 +147,93 @@ app.post('/words/document', function (req, res) {
     }
 
     const inputWords = req.body.split(',').map(w => w.toLowerCase());
+    let wordsCount = 0;
+    try {
+        wordsCount = appendWords(userName, databaseClient, inputWords);
+    }
+    catch (err) {
+        console.error('err', err)
+        res.status(404);
+        res.send("User was deleted.");
+        return;
+    }
+
+    res.status(200);
+    res.send("Words stored" + wordsCount);
+});
+
+/* 
+   curl  -H 'user-token: user1-my-token' \
+         -H 'content-type: application/json' \
+         -d '{"url":"https://ru.wikipedia.org/wiki/"}' \
+         -X POST 'http://localhost:8080/words/external'
+*/
+app.post('/words/external', function (req, res) {
+    const externalUrl = req.body.url;
+    console.log('external url', externalUrl);
+
+    const { body, headers } = req;
+    const userToken = headers['user-token'];
+    if (!userToken) {
+        res.status(403);
+        res.send("Access denied");
+        return;
+    }
+
+    if (!databaseClient.tokens.isValidToken(userToken)) {
+        res.status(403);
+        res.send("User access denied");
+        return;
+    }
+    const userName = databaseClient.tokens.getByToken(userToken);
+    const contentType = headers['content-type'];
+    if (contentType !== 'application/json') {
+        res.status(400);
+        res.send(`Content type ${contentType} not supported`);
+        return;
+    }
+
+    request(externalUrl, function (error, response, body) {
+        if (error) {
+            res.status(500);
+            res.send("Error occured." + error);
+            return;
+        };
+
+        console.log(response.statusCode)
+        if (response.statusCode > 299) {
+            res.status(400);
+            res.send("Site response" + response.statusCode + response.statusMessage);
+            return;
+        };
+
+        const root = parse(body);
+        const spans = root.querySelectorAll('span');
+        if (!spans) {
+            res.status(400);
+            res.send("No span content.");
+            return;
+        }
+
+        const textContentList = Array.prototype.map.call(spans, t => t.textContent);
+        const inputWords = textContentList.map(x => x.trim()).filter(x => x).flatMap(t => t.split(/[^a-zA-ZА-Яа-я]/)).filter(m => m && m.length > 2)
+        let wordsCount;
+        try {
+            wordsCount = appendWords(userName, databaseClient, inputWords);
+        }
+        catch (err) {
+            console.error('err', err)
+            res.status(404);
+            res.send("User was deleted.");
+            return;
+        }
+
+        res.status(200);
+        res.send("Words stored" + wordsCount);
+    });
+});
+
+function appendWords(userName, databaseClient, inputWords) {
     const wordWithCounter = getWordWithCounter(inputWords);
 
     let uwUserWords;
@@ -152,10 +241,8 @@ app.post('/words/document', function (req, res) {
         const wordsOnly = Object.keys(wordWithCounter);
         uwUserWords = databaseClient.words.findBatch(userName, wordsOnly);
     } catch (err) {
-        console.error('err', err)
-        res.status(404);
-        res.send("User was deleted.");
-        return;
+        console.error('databaseClient.words error', err)
+        throw Error("No user");
     }
 
     for (const uwUserWord of uwUserWords) {
@@ -170,22 +257,8 @@ app.post('/words/document', function (req, res) {
     }
     databaseClient.words.storeBatch(userName, uwUserWords.map(uwUserWord => uwUserWord.userWord));
 
-    res.status(200);
-    res.send("Words stored" + uwUserWords.length);
-});
-
-/* 
-   curl  -H 'user-token: user1-my-token' \
-         -H 'content-type: application/json' \
-         -d '{"url":"https://stackoverflow.com/questions/477816/which-json-content-type-do-i-use"}' \
-         -X POST 'http://localhost:8080/words/external'
-*/
-app.post('/words/external', function(req,res){
-    const externalUrl = req.body.url;
-    console.log('external url', externalUrl);
-
-    //...
-});
+    return uwUserWords.length
+}
 
 function getWordWithCounter(words) {
     return words.reduce(function (dict, word) {
