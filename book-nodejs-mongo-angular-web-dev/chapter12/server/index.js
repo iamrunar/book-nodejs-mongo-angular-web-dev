@@ -59,6 +59,9 @@ app.post('/users/login', function (req, res) {
 
 // curl  -H 'user-token: user1-my-token' 'http://localhost:8080/words/stats'
 app.get('/words/stats', function (req, res) {
+    const reqUrl = url.parse(req.url, true);
+    const { word } = reqUrl.query;
+
     const userToken = req.headers['user-token'];
     if (!userToken) {
         res.status(403);
@@ -70,8 +73,36 @@ app.get('/words/stats', function (req, res) {
         res.send("User access denied");
         return;
     }
+    const userName = databaseClient.tokens.getByToken(userToken);
+    let userStat;
+    if (word) {
+        let totalCount;
+        try {
+            totalCount = databaseClient.words.getUserWordCount(userName, word);
+        } catch (err) {
+            res.status(403);
+            res.send("User words was not found");
+            return;
+        }
+        userStat = { words: [{ word, count:totalCount }], count:totalCount };
+    }
+    else {
+        let userWordsCount;
+        try {
+            userWordsCount = databaseClient.words.getUserWordsCount(userName);
+        } catch (err) {
+            res.status(403);
+            res.send("User words was not found");
+            return;
+        }
+        const totalCount = userWordsCount.reduce(function (sum, element) {
+            return sum + element.count;
+        }, 0)
+        userStat = { words: userWordsCount, count: totalCount };
+    }
+
+    res.send(userStat);
     res.status(200);
-    res.send({ count: 0 });
 });
 
 // curl  -H 'user-token: user1-my-token' -X POST 'http://localhost:8080/words/single?word=hello'

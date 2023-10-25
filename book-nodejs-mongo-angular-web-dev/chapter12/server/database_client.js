@@ -62,7 +62,7 @@ function DatabaseClient(connectionString) {
                 const { word } = userWord;
             },
 
-            storeBatch: function (userName, usersWords){
+            storeBatch: function (userName, usersWords) {
                 console.log(usersWords)
 
             },
@@ -78,7 +78,15 @@ function DatabaseClient(connectionString) {
                     return { word: word, userWord: new userWord.UserWord(word) }
                 });
                 return userWords;
-            }
+            },
+
+            getUserWordCount: function (userName, word) {
+                return 1;
+            },
+
+            getUserWordsCount: function (userName) {
+                return [{ word: 'hi', count: 1 }, { word: 'bye', count: 2 }]
+            },
         }
 }
 
