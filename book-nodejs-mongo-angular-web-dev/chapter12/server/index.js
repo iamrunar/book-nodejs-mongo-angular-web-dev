@@ -10,13 +10,16 @@ const { parse } = require('node-html-parser');
 const port = 8080;
 
 const databaseClient = new dbClient.DatabaseClient('connectionString');
+databaseClient.initialize(function(err){
+    console.log('db initalized');
+})
 const app = express();
 
 app.use(bodyParser.text({ type: 'text/plain' }));
 app.use(bodyParser.json({ type: 'application/json' }));
 
 app.listen(port);
-console.log('listen to', port);
+console.info('listen to', port);
 
 //curl -X POST 'http://localhost:8080/users/new?name=user1'
 app.post('/users/new', function (req, res) {
