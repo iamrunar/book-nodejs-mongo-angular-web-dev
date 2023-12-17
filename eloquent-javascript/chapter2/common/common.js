@@ -69,10 +69,8 @@ FizzBuzz.prototype.secondFunction = function (count) {
       currentPhrase += 'Buzz';
     }
 
-    if (!currentPhrase) {
-      currentPhrase = '' + number;
-    }
-    string += currentPhrase;
+    // solution from book
+    string += currentPhrase || number;
   }
   return string;
 };
@@ -111,6 +109,21 @@ Chessboard.prototype.second = function (size) {
     }
     rowModSwitcher = rowModSwitcher === 0 ? 1 : 0;
     chessBoard += `${rowCells}\n`;
+  }
+  return chessBoard;
+};
+
+Chessboard.prototype.fromBook = function (size) {
+  let chessBoard = '';
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if ((row + col) % 2 === 0) {
+        chessBoard += ' ';
+      } else {
+        chessBoard += '#';
+      }
+    }
+    chessBoard += `\n`;
   }
   return chessBoard;
 };

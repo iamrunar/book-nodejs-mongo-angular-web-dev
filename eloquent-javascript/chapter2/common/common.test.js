@@ -84,4 +84,19 @@ describe('Chessboard', () => {
 `;
     expect(chessboard.second(size)).toBe(expected);
   });
+
+  it('from book', () => {
+    const size = 9;
+    const expected = ` # # # # 
+# # # # #
+ # # # # 
+# # # # #
+ # # # # 
+# # # # #
+ # # # # 
+# # # # #
+ # # # # 
+`;
+    expect(chessboard.fromBook(size)).toBe(expected);
+  });
 });
